@@ -1,106 +1,97 @@
+# pm-watch
 
-Default to using Bun instead of Node.js.
+macOS-only CLI agent that polls ActivityWatch (`localhost:5600`) and POSTs events to a user-configured webhook. Distributed as a `bun --compile`'d single binary and registered as a LaunchAgent for background sync.
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
-- Bun automatically loads .env, so don't use dotenv.
+## Architecture
 
-## APIs
+```
+src/
+  agent.ts           # CLI entry + subcommand router
+  config.ts          # Config shape, paths, load/save, auto-gen agentId
+  keychain.ts        # macOS `security` CLI wrapper for Bearer token
+  launchctl.ts       # bootstrap/bootout/kickstart + plist template
+  identity.ts        # hostname / os_user helpers
+  activitywatch.ts   # ActivityWatch REST client (ping, listBuckets, getEvents)
+  buffer.ts          # bun:sqlite — events + per-bucket cursors
+  sync.ts            # POST batch to webhookUrl with Bearer token + identity
+  log.ts             # append-only log to ~/Library/Logs/pm-watch/agent.log
+  commands/
+    init.ts          # @clack/prompts wizard
+    pair.ts          # print Agent ID + claim instructions
+    config.ts        # set / get / unset (KEY_ALIAS maps hook→webhookUrl etc.)
+    install.ts       # write LaunchAgent plist + launchctl bootstrap
+    uninstall.ts     # bootout + remove plist; --purge also drops Keychain token
+    lifecycle.ts     # start / stop / restart via launchctl
+    doctor.ts        # run all health checks
+    status.ts        # colored status summary
+    logs.ts          # tail / tail -f agent log
+    run.ts           # poll-buffer-sync loop (LaunchAgent entrypoint, hidden)
+    sync.ts          # force-sync command wrapper
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
-
-## Testing
-
-Use `bun test` to run tests.
-
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
+installer/
+  install.sh         # per-user curl installer (resolves latest via API)
+  build.sh           # bun build --compile per ARCH, keeps both binaries
 ```
 
-## Frontend
+Key invariants:
+- `agentId` is generated once in `loadConfig()` and **never** mutated afterwards. It is the stable identity for the claim flow.
+- The auth token lives **only** in the macOS Keychain (service `pm-watch`, account `webhook-token`). Never write it to `config.json`.
+- `buffer.db` dedupes events via `UNIQUE(bucket_id, event_id)`, so re-fetching from ActivityWatch is safe.
+- Run-loop (`pmw run`) and LaunchAgent are coupled: the plist points at `~/.local/bin/pmw run`. `install.ts` rewrites the plist from a template in `launchctl.ts`.
 
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
+## Commands to know
 
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
+```bash
+bun run dev         # bun run src/agent.ts
+bun run build       # → dist/pmw-darwin-arm64
+bun run build:x64   # → dist/pmw-darwin-x64
 ```
 
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
+Smoke test without installing:
 
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
+```bash
+bun run dev status
+bun run dev pair
+bun run dev doctor
 ```
 
-With the following `frontend.tsx`:
+Smoke test the compiled binary locally (no release needed):
 
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
-
-// import .css files directly and it works
-import './index.css';
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
+```bash
+bun run build
+~/.local/bin/pmw doctor     # after 'bash installer/install.sh' points at dist
 ```
 
-Then, run index.ts
+## Release workflow
 
-```sh
-bun --hot ./index.ts
-```
+1. Bump: `git commit` with source changes, push `main`.
+2. Build both architectures: `bun run build && bun run build:x64`.
+3. Tag + push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+4. Publish: `gh release create vX.Y.Z --prerelease --notes-file ... dist/pmw-darwin-arm64 dist/pmw-darwin-x64`.
 
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+`installer/install.sh` queries `/repos/.../releases` (not `/releases/latest`) so **pre-releases are discoverable**. Keep releases `--prerelease` while pm-dashboard integration is in flight.
+
+## Constraints and gotchas
+
+- **No Apple Developer ID.** Distribution relies on `xattr -cr` to strip `com.apple.quarantine` after the installer downloads the binary. Any refactor that drops that step will reintroduce the "developer cannot be verified" Gatekeeper popup.
+- **Per-user install, no `sudo`.** Binary goes to `~/.local/bin/pmw`, LaunchAgent is per-user (`gui/$UID`). Never switch to `/usr/local/bin` or `LaunchDaemons` — that would require root and break Keychain access.
+- **macOS Library paths** are not writable in the default Claude Code sandbox. When running agent commands during dev, expect EPERM on `mkdir ~/Library/Application Support/pm-watch` unless sandbox is disabled for that call.
+- **Raw GitHub CDN caches `~5 min`.** After pushing `installer/install.sh`, expect a short window before `curl | bash` picks up the change.
+- `bun:sqlite` writes use `PRAGMA journal_mode = WAL`, so the DB directory contains `buffer.db`, `buffer.db-wal`, and `buffer.db-shm`. Clean up all three when resetting state.
+
+## Bun conventions
+
+Default to Bun APIs over Node equivalents:
+
+- `bun` CLI instead of `node` / `ts-node`
+- `bun test` instead of `jest` / `vitest`
+- `bun install` / `bun add` / `bun run` instead of npm/yarn/pnpm
+- `bunx` instead of `npx`
+- `Bun.file`, `Bun.write`, `Bun.stdin` instead of `node:fs` readFile/writeFile
+- `bun:sqlite` instead of `better-sqlite3`
+- `Bun.$` shell template instead of `execa` / manual `spawn`
+- `fetch` (Bun built-in) instead of `axios` / `node-fetch`
+- `crypto.randomUUID()` (Web Crypto, built-in) instead of `uuid` package
+- Bun auto-loads `.env` — do not pull in `dotenv`
+
+The compiled binary embeds the Bun runtime, so target Macs do **not** need Bun installed. Only the build host does.

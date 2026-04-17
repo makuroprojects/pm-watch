@@ -35,9 +35,18 @@ esac
 
 if [[ -n "${RELEASE_URL:-}" ]]; then
   URL="$RELEASE_URL"
-elif [[ "$VERSION" == "latest" ]]; then
-  URL="https://github.com/$REPO/releases/latest/download/pmw-darwin-$ARCH"
 else
+  if [[ "$VERSION" == "latest" ]]; then
+    # Query the releases API so that prereleases are also discoverable.
+    VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases" \
+      | grep -m1 '"tag_name"' \
+      | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')"
+    if [[ -z "$VERSION" ]]; then
+      echo "✗ Failed to resolve latest release for $REPO" >&2
+      exit 1
+    fi
+    echo "→ Resolved latest: $VERSION"
+  fi
   URL="https://github.com/$REPO/releases/download/$VERSION/pmw-darwin-$ARCH"
 fi
 

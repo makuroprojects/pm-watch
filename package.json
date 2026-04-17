@@ -1,0 +1,22 @@
+{
+  "name": "pm-watch",
+  "module": "src/agent.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run src/agent.ts",
+    "status": "bun run src/agent.ts status",
+    "build": "bash installer/build.sh",
+    "build:x64": "ARCH=x64 bash installer/build.sh"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.2.0",
+    "picocolors": "^1.1.1"
+  }
+}

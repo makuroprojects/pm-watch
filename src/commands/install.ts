@@ -13,7 +13,7 @@ export async function installCommand(_args: string[]) {
   await unload();
   await load();
 
-  console.log(pc.green("✓"), "LaunchAgent installed");
+  console.log(pc.green("✓"), "LaunchAgent installed and started");
   console.log(pc.dim("  binary:"), binary);
   console.log(pc.dim("  plist :"), LAUNCH_PLIST);
 }

@@ -8,6 +8,10 @@ export async function startCommand(_args: string[]) {
     console.error(pc.red("✗"), "LaunchAgent not installed. Run: pmw install");
     process.exit(1);
   }
+  if (await isLoaded()) {
+    console.log(pc.green("✓"), "agent already running");
+    return;
+  }
   await load();
   console.log(pc.green("✓"), "agent started");
 }

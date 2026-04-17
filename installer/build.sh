@@ -5,8 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$ROOT/dist"
 ARCH="${ARCH:-arm64}"
 
-rm -rf "$OUT"
 mkdir -p "$OUT"
+rm -f "$OUT/pmw" "$OUT/pmw-darwin-$ARCH"
 
 echo "→ Compiling pmw (darwin-$ARCH)"
 bun build --compile \

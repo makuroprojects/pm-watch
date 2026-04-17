@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-REPO="${PMW_REPO:-yourorg/pm-watch}"
+REPO="${PMW_REPO:-makuroprojects/pm-watch}"
 VERSION="latest"
 BIN_DIR="$HOME/.local/bin"
 BIN="$BIN_DIR/pmw"

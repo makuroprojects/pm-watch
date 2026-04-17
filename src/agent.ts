@@ -9,6 +9,7 @@ import { uninstallCommand } from "./commands/uninstall";
 import { startCommand, stopCommand, restartCommand } from "./commands/lifecycle";
 import { doctorCommand } from "./commands/doctor";
 import { logsCommand } from "./commands/logs";
+import { pairCommand } from "./commands/pair";
 
 const commands: Record<string, (args: string[]) => Promise<void>> = {
   init: initCommand,
@@ -16,6 +17,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
   status: statusCommand,
   sync: syncCommand,
   "sync-now": syncCommand,
+  pair: pairCommand,
   set: setCommand,
   get: getCommand,
   unset: unsetCommand,
@@ -32,7 +34,9 @@ const help = `${pc.bold("pmw")} — ActivityWatch sync agent
 
 ${pc.bold("Setup")}
   pmw init                  Interactive setup wizard
+  pmw pair                  Show Agent ID for claiming in pm-dashboard
   pmw set hook <url>        Set webhook URL
+  pmw set dashboard <url>   Set dashboard URL (shown on pair)
   pmw set token             Set auth token (prompt or --stdin)
   pmw set interval <n>      Sync interval in minutes
   pmw get [key]             Show config
@@ -43,7 +47,7 @@ ${pc.bold("Lifecycle")}
   pmw uninstall [--purge]   Remove LaunchAgent (add --purge to drop token)
 
 ${pc.bold("Ops")}
-  pmw status                Show status
+  pmw status                Show status (includes Agent ID)
   pmw doctor                Run all health checks
   pmw sync                  Force sync now
   pmw logs [-f] [-n N]      Tail agent log

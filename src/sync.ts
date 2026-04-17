@@ -1,5 +1,6 @@
 import type { Buffer } from "./buffer";
 import { loadConfig } from "./config";
+import { getHostname, getOsUser } from "./identity";
 import { getToken } from "./keychain";
 import { log } from "./log";
 
@@ -20,6 +21,9 @@ export async function syncPending(buf: Buffer): Promise<SyncResult> {
   if (batch.length === 0) return { sent: 0, failed: 0 };
 
   const payload = {
+    agent_id: config.agentId,
+    hostname: getHostname(),
+    os_user: getOsUser(),
     events: batch.map((e) => ({
       bucket_id: e.bucket_id,
       event_id: e.event_id,

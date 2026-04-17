@@ -13,13 +13,17 @@ export const LAUNCH_PLIST = join(homedir(), "Library/LaunchAgents", `${LAUNCH_LA
 export const INSTALL_BIN = join(homedir(), ".local/bin/pmw");
 
 export interface Config {
+  agentId: string;
   webhookUrl: string;
+  dashboardUrl: string;
   syncIntervalMinutes: number;
   awUrl: string;
 }
 
 export const DEFAULT_CONFIG: Config = {
+  agentId: "",
   webhookUrl: "",
+  dashboardUrl: "",
   syncIntervalMinutes: 5,
   awUrl: "http://localhost:5600",
 };
@@ -34,12 +38,20 @@ export function ensureDirs() {
 export async function loadConfig(): Promise<Config> {
   ensureDirs();
   const file = Bun.file(CONFIG_FILE);
-  if (!(await file.exists())) {
-    await Bun.write(CONFIG_FILE, JSON.stringify(DEFAULT_CONFIG, null, 2));
-    return { ...DEFAULT_CONFIG };
+  let config: Config;
+  if (await file.exists()) {
+    const parsed = (await file.json()) as Partial<Config>;
+    config = { ...DEFAULT_CONFIG, ...parsed };
+  } else {
+    config = { ...DEFAULT_CONFIG };
   }
-  const parsed = (await file.json()) as Partial<Config>;
-  return { ...DEFAULT_CONFIG, ...parsed };
+
+  // Generate stable agentId on first load; persist immediately.
+  if (!config.agentId) {
+    config.agentId = crypto.randomUUID();
+    await saveConfig(config);
+  }
+  return config;
 }
 
 export async function saveConfig(config: Config): Promise<void> {

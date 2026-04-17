@@ -26,6 +26,13 @@ export async function initCommand(_args: string[]) {
   });
   if (isCancel(hook)) bail();
 
+  const dashboard = await text({
+    message: "Dashboard URL (optional, shown on `pmw pair`)",
+    placeholder: "https://pm-dashboard.corp.com",
+    initialValue: existing.dashboardUrl,
+  });
+  if (isCancel(dashboard)) bail();
+
   const token = await password({
     message: "Auth token (leave blank to keep existing)",
   });
@@ -57,7 +64,9 @@ export async function initCommand(_args: string[]) {
   const s = spinner();
   s.start("Saving configuration");
   await saveConfig({
+    agentId: existing.agentId,
     webhookUrl: hook,
+    dashboardUrl: dashboard,
     syncIntervalMinutes: Number(intervalStr),
     awUrl,
   });
@@ -70,6 +79,11 @@ export async function initCommand(_args: string[]) {
 
   note("Running doctor...", "Health check");
   await doctorCommand([]);
+
+  console.log("");
+  console.log(pc.bold("Next step — claim this agent:"));
+  console.log(`  ${pc.cyan("pmw pair")}   ${pc.dim("shows agent ID + claim instructions")}`);
+  console.log("");
 
   outro(pc.green("pm-watch ready ✓"));
 }

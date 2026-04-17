@@ -18,6 +18,7 @@ export interface Config {
   dashboardUrl: string;
   syncIntervalMinutes: number;
   awUrl: string;
+  autoUpdate: boolean;
 }
 
 export const DEFAULT_CONFIG: Config = {
@@ -26,6 +27,7 @@ export const DEFAULT_CONFIG: Config = {
   dashboardUrl: "",
   syncIntervalMinutes: 5,
   awUrl: "http://localhost:5600",
+  autoUpdate: true,
 };
 
 export type ConfigKey = keyof Config;

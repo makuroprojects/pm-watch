@@ -14,6 +14,8 @@ const KEY_ALIAS: Record<string, ConfigKey> = {
   awUrl: "awUrl",
   agentId: "agentId",
   agent: "agentId",
+  autoUpdate: "autoUpdate",
+  autoupdate: "autoUpdate",
 };
 
 const READONLY_KEYS = new Set<ConfigKey>(["agentId"]);
@@ -75,6 +77,16 @@ export async function setCommand(args: string[]) {
       process.exit(1);
     }
     await setConfigValue(key, n);
+  } else if (key === "autoUpdate") {
+    const truthy = new Set(["1", "true", "yes", "on", "enabled"]);
+    const falsy = new Set(["0", "false", "no", "off", "disabled"]);
+    const v = value.toLowerCase();
+    if (truthy.has(v)) await setConfigValue(key, true);
+    else if (falsy.has(v)) await setConfigValue(key, false);
+    else {
+      console.error(pc.red("✗"), "autoUpdate must be true/false");
+      process.exit(1);
+    }
   } else {
     await setConfigValue(key, value);
   }
@@ -92,6 +104,7 @@ export async function getCommand(args: string[]) {
     console.log(`  dashboardUrl        ${config.dashboardUrl || pc.dim("(unset)")}`);
     console.log(`  syncIntervalMinutes ${config.syncIntervalMinutes}`);
     console.log(`  awUrl               ${config.awUrl}`);
+    console.log(`  autoUpdate          ${config.autoUpdate ? pc.green("on") : pc.dim("off")}`);
     console.log(`  token               ${hasTok ? pc.dim("••••••••  (in Keychain)") : pc.dim("(unset)")}`);
     return;
   }

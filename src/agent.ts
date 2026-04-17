@@ -10,6 +10,8 @@ import { startCommand, stopCommand, restartCommand } from "./commands/lifecycle"
 import { doctorCommand } from "./commands/doctor";
 import { logsCommand } from "./commands/logs";
 import { pairCommand } from "./commands/pair";
+import { updateCommand } from "./commands/update";
+import { VERSION } from "./version";
 
 const commands: Record<string, (args: string[]) => Promise<void>> = {
   init: initCommand,
@@ -28,6 +30,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
   restart: restartCommand,
   doctor: doctorCommand,
   logs: logsCommand,
+  update: updateCommand,
 };
 
 const help = `${pc.bold("pmw")} — ActivityWatch sync agent
@@ -47,15 +50,22 @@ ${pc.bold("Lifecycle")}
   pmw uninstall [--purge]   Remove LaunchAgent (add --purge to drop token)
 
 ${pc.bold("Ops")}
-  pmw status                Show status (includes Agent ID)
+  pmw status                Show status (includes Agent ID + version)
   pmw doctor                Run all health checks
   pmw sync                  Force sync now
   pmw logs [-f] [-n N]      Tail agent log
+  pmw update [--check]      Update to latest release (--check = dry run)
 
+${pc.dim(`pm-watch v${VERSION}`)}
 ${pc.dim("Hidden: pmw run   (called by LaunchAgent)")}
 `;
 
 const [, , cmd, ...args] = process.argv;
+
+if (cmd === "--version" || cmd === "-v" || cmd === "version") {
+  console.log(`pm-watch v${VERSION}`);
+  process.exit(0);
+}
 
 if (!cmd || cmd === "--help" || cmd === "-h" || cmd === "help") {
   console.log(help);

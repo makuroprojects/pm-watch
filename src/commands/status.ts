@@ -5,6 +5,7 @@ import { loadConfig, CONFIG_FILE, DB_FILE, LOG_FILE, LAUNCH_PLIST } from "../con
 import { getHostname, getOsUser } from "../identity";
 import { getToken } from "../keychain";
 import { isLoaded } from "../launchctl";
+import { VERSION } from "../version";
 import { existsSync } from "node:fs";
 
 export async function statusCommand(_args: string[]) {
@@ -24,7 +25,7 @@ export async function statusCommand(_args: string[]) {
   const dot = agentLoaded ? pc.green("●") : pc.yellow("○");
   const state = agentLoaded ? pc.green("running") : pc.yellow("not running");
 
-  console.log(`${pc.bold("pm-watch")} ${dot} ${state}`);
+  console.log(`${pc.bold("pm-watch")} ${pc.dim(`v${VERSION}`)} ${dot} ${state}`);
   console.log(pc.dim("─".repeat(40)));
   console.log(`  Agent ID      ${pc.cyan(config.agentId)}`);
   console.log(`  Host / User   ${getHostname()} / ${getOsUser()}`);
@@ -34,6 +35,7 @@ export async function statusCommand(_args: string[]) {
   console.log(`  Interval      ${config.syncIntervalMinutes} min`);
   console.log(`  ActivityWatch ${awOk ? pc.green("✓ reachable") : pc.red("✗ unreachable")} ${pc.dim(config.awUrl)}`);
   console.log(`  Buffer        ${stats.total} total, ${stats.pending} pending`);
+  console.log(`  Auto-update   ${config.autoUpdate ? pc.green("on") : pc.dim("off")}`);
   console.log(`  LaunchAgent   ${existsSync(LAUNCH_PLIST) ? pc.green("installed") : pc.yellow("not installed")}`);
   console.log("");
   console.log(pc.dim(`  config : ${CONFIG_FILE}`));

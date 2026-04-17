@@ -69,6 +69,7 @@ export async function initCommand(_args: string[]) {
     dashboardUrl: dashboard,
     syncIntervalMinutes: Number(intervalStr),
     awUrl,
+    autoUpdate: existing.autoUpdate,
   });
   if (token) await setToken(token);
   s.stop("Configuration saved");

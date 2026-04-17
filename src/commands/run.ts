@@ -3,13 +3,23 @@ import { Buffer } from "../buffer";
 import { loadConfig } from "../config";
 import { log } from "../log";
 import { syncPending } from "../sync";
+import { maybeAutoUpdate } from "../updater";
+import { VERSION } from "../version";
+
+const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const UPDATE_STARTUP_GRACE_MS = 10 * 60 * 1000;
 
 export async function runCommand(_args: string[]) {
   const config = await loadConfig();
   const buf = new Buffer();
   const aw = await ActivityWatchClient.create();
 
-  log("agent starting", `interval=${config.syncIntervalMinutes}min`, `webhook=${config.webhookUrl || "(unset)"}`);
+  log(
+    `agent starting v${VERSION}`,
+    `interval=${config.syncIntervalMinutes}min`,
+    `webhook=${config.webhookUrl || "(unset)"}`,
+    `autoUpdate=${config.autoUpdate}`,
+  );
 
   const shutdown = () => {
     log("shutting down");
@@ -19,12 +29,32 @@ export async function runCommand(_args: string[]) {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 
+  const startTime = Date.now();
+  let lastUpdateCheck = 0;
+
   while (true) {
     try {
       await tick(aw, buf);
     } catch (err) {
       log("tick error", String(err));
     }
+
+    const now = Date.now();
+    if (
+      now - startTime > UPDATE_STARTUP_GRACE_MS &&
+      now - lastUpdateCheck > UPDATE_CHECK_INTERVAL_MS
+    ) {
+      lastUpdateCheck = now;
+      const applied = await maybeAutoUpdate({
+        autoUpdate: config.autoUpdate,
+        pendingCount: buf.stats().pending,
+      });
+      if (applied) {
+        buf.close();
+        process.exit(0);
+      }
+    }
+
     await new Promise((r) => setTimeout(r, config.syncIntervalMinutes * 60_000));
   }
 }

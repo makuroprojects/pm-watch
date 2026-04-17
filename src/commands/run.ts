@@ -9,7 +9,7 @@ export async function runCommand(_args: string[]) {
   const buf = new Buffer();
   const aw = await ActivityWatchClient.create();
 
-  log("agent starting", `interval=${config.syncIntervalMinutes}min`, `server=${config.serverUrl}`);
+  log("agent starting", `interval=${config.syncIntervalMinutes}min`, `webhook=${config.webhookUrl || "(unset)"}`);
 
   const shutdown = () => {
     log("shutting down");
